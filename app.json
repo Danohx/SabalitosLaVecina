@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "SabalitosLaVecina",
+    "slug": "SabalitosLaVecina",
+    "scheme": "sabalitosapp",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/vecina.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/vecina.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/vecina.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "notification": {
+        "icon": "./assets/icono_notificacion.svg",
+        "color": "#F4511E"
+      },
+      "package": "com.danohx.SabalitosLaVecina"
+    },
+    "web": {
+      "favicon": "./assets/vecina.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icono_notificacion.png",
+          "color": "#F4511E",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "projectId": "sabalitoslavecina",
+      "router": {},
+      "eas": {
+        "projectId": "36c13048-2b7c-44e1-b178-eefb964e3d93"
+      }
+    }
+  }
+}
