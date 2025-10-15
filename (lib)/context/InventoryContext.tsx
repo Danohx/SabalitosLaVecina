@@ -43,9 +43,7 @@ export const InventoryProvider: React.FC<{ children: ReactNode }> = ({ children 
     } = useInventoryOperations(inventory, setInventory, salesHistory, setSalesHistory);
 
     React.useEffect(() => {
-        if (!isLoading && inventory.length > 0) {
-            calculateAlerts(inventory);
-        }
+        calculateAlerts(inventory, isLoading);
     }, [inventory, isLoading, calculateAlerts]);
 
     if (isLoading) {
