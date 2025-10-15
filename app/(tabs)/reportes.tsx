@@ -1,6 +1,6 @@
-// app/(tabs)/reportes.tsx
+// app/(tabs)/reportes.tsx (Optimizado)
 
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, Dimensions } from 'react-native';
 import React, { useMemo, useState, useCallback } from 'react';
 import { useInventory } from '../../(lib)/context/InventoryContext';
 import { COLOR_PALETTE } from '../../(lib)/utils/colors';
@@ -13,176 +13,175 @@ import SummaryCard from '../../(lib)/components/SummaryCard';
 const PAGE_SIZE = 15;
 
 type AggregatedDataItem = {
-  type: string;
-  totalRevenue: number;
-  transactionCount: number;
+    type: string;
+    totalRevenue: number;
+    transactionCount: number;
 };
 
 type TypeConfig = {
-  icon: string;
-  label: string;
-  badgeStyle: any;
-  color: string;
+    icon: string;
+    label: string;
+    badgeStyle: any;
+    color: string;
 };
 
-const Reportes = () => {
-  const { salesHistory, isLoading } = useInventory();
-  const [page, setPage] = useState(1);
-  const [selectedPeriod, setSelectedPeriod] = useState<string | number | null>('today');
+const MemoizedSaleItem = React.memo(SaleItem);
 
-  const getTypeConfig = (category: CategoriaProducto | string): TypeConfig => {
-    switch(category) {
-      case 'Sabalitos':
-          return { icon: '🍧', label: 'Sabalitos', badgeStyle: styles.sabalitosBadge, color: '#FF6B6B' };
-      case 'Paletas':
-          return { icon: '🍭', label: 'Paletas', badgeStyle: styles.paletasBadge, color: '#4ECDC4' };
-      case 'Frituras':
-          return { icon: '🍿', label: 'Frituras', badgeStyle: styles.friturasBadge, color: '#FFD166' };
-      case 'Papeleria':
-          return { icon: '📚', label: 'Papeleria', badgeStyle: styles.papeleriaBadge, color: '#6A0572' };
-      default:
-          return { icon: '📦', label: 'General', badgeStyle: styles.defaultBadge, color: '#9E9E9E' };
-    }
-  };
-
-
-  const { aggregatedData, processedSales } = useMemo(() => {
-    let cutoffDate: Date | null = null;
-    
-    if (selectedPeriod === 'today') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      cutoffDate = today;
-    } else if (typeof selectedPeriod === 'number') {
-      cutoffDate = new Date(new Date().setDate(new Date().getDate() - selectedPeriod));
-    }
-
-    const filteredHistory = salesHistory.filter(sale => 
-      !cutoffDate || new Date(sale.fecha) >= cutoffDate
-    );
-
-    const aggregated = filteredHistory.reduce((acc: Record<string, AggregatedDataItem>, sale) => {
-        const category = sale.categoria || 'General'; // ✅ NUEVO - por categoría
-      
-        if (!acc[category]) {
-            acc[category] = {
-                type: category, // Ahora type será la categoría
-                totalRevenue: 0,
-                transactionCount: 0,
-            };
+const useProcessedSales = (salesHistory: any[], selectedPeriod: string | number | null) => {
+    return useMemo(() => {
+        let cutoffDate: Date | null = null;
+        
+        if (selectedPeriod === 'today') {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            cutoffDate = today;
+        } else if (typeof selectedPeriod === 'number') {
+            cutoffDate = new Date(new Date().setDate(new Date().getDate() - selectedPeriod));
         }
 
-        acc[category].totalRevenue += sale.ingresoTotal;
-        acc[category].transactionCount++;
-        
-        return acc;
-    }, {});
+        // Paso 1: Filtrado O(N)
+        const filteredHistory = salesHistory.filter(sale => 
+            !cutoffDate || new Date(sale.fecha) >= cutoffDate
+        );
+        const aggregated = filteredHistory.reduce((acc: Record<string, AggregatedDataItem>, sale) => {
+            const category = sale.categoria || 'General';
+            
+            if (!acc[category]) {
+                acc[category] = { type: category, totalRevenue: 0, transactionCount: 0 };
+            }
 
-    
-    const aggregatedArray = Object.values(aggregated).sort((a, b) => b.totalRevenue - a.totalRevenue);
-    const sortedSales = filteredHistory.slice().sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+            acc[category].totalRevenue += sale.ingresoTotal;
+            acc[category].transactionCount++;
+            
+            return acc;
+        }, {});
+        const aggregatedArray = Object.values(aggregated).sort((a, b) => b.totalRevenue - a.totalRevenue);
+        const sortedSales = [...filteredHistory].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
-    return { aggregatedData: aggregatedArray, processedSales: sortedSales };
-  }, [salesHistory, selectedPeriod]);
+        const totalRevenue = aggregatedArray.reduce((sum, item) => sum + item.totalRevenue, 0);
 
-  const totalRevenue = useMemo(() => {
-    return aggregatedData.reduce((sum, item) => sum + item.totalRevenue, 0);
-  }, [aggregatedData]);
+        return { aggregatedData: aggregatedArray, processedSales: sortedSales, totalRevenue };
+    }, [salesHistory, selectedPeriod]); // Se ejecuta solo si estos cambian
+}
 
-  const pagedSales = useMemo(() => {
-    const end = page * PAGE_SIZE;
-    return processedSales.slice(0, end);
-  }, [processedSales, page]);
 
-  const loadMore = useCallback(() => {
-    if (pagedSales.length < processedSales.length) {
-      setPage(prevPage => prevPage + 1);
-    }
-  }, [pagedSales.length, processedSales.length]);
+const Reportes = () => {
+    const { salesHistory, isLoading } = useInventory();
+    const [page, setPage] = useState(1);
+    const [selectedPeriod, setSelectedPeriod] = useState<string | number | null>('today');
 
-  const handlePeriodChange = (value: string | number | null) => {
-    setPage(1);
-    setSelectedPeriod(value);
-  };
+    const { aggregatedData, processedSales, totalRevenue } = useProcessedSales(salesHistory, selectedPeriod);
+    const getTypeConfig = useCallback((category: CategoriaProducto | string): TypeConfig => {
+        switch(category) {
+            case 'Sabalitos':
+                return { icon: '🍧', label: 'Sabalitos', badgeStyle: styles.sabalitosBadge, color: '#FF6B6B' };
+            case 'Paletas':
+                return { icon: '🍭', label: 'Paletas', badgeStyle: styles.paletasBadge, color: '#4ECDC4' };
+            case 'Frituras':
+                return { icon: '🍿', label: 'Frituras', badgeStyle: styles.friturasBadge, color: '#FFD166' };
+            case 'Papeleria':
+                return { icon: '📚', label: 'Papeleria', badgeStyle: styles.papeleriaBadge, color: '#6A0572' };
+            default:
+                return { icon: '📦', label: 'General', badgeStyle: styles.defaultBadge, color: '#9E9E9E' };
+        }
+    }, []);
 
-  const ListHeader = () => (
-    <View style={styles.headerContainer}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Reporte de Ganancias</Text>
-        <Text style={styles.headerSubtitle}>Resumen de tu actividad comercial</Text>
-      </View>
+    const pagedSales = useMemo(() => {
+        const end = page * PAGE_SIZE;
+        return processedSales.slice(0, end);
+    }, [processedSales, page]);
 
-      <SummaryCard totalRevenue={totalRevenue} selectedPeriod={selectedPeriod} />
+    const loadMore = useCallback(() => {
+        if (pagedSales.length < processedSales.length) {
+            setPage(prevPage => prevPage + 1);
+        }
+    }, [processedSales.length, pagedSales.length]);
 
-      <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={handlePeriodChange} />
+    const handlePeriodChange = (value: string | number | null) => {
+        setPage(1); // Resetear paginación
+        setSelectedPeriod(value);
+    };
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Ganancias por Categoria</Text>
-        <Text style={styles.sectionCount}>({aggregatedData.length} Tipos)</Text>
-      </View>
-      
-      <FlatList
-        data={aggregatedData}
-        renderItem={({ item }) => <TypeCard item={item} getTypeConfig={getTypeConfig} />}
-        keyExtractor={item => item.type}
-        horizontal={true}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.aggregatedList}
-      />
+    const MemoizedListHeader = useMemo(() => () => (
+        <View style={styles.headerContainer}>
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Reporte de Ganancias</Text>
+                <Text style={styles.headerSubtitle}>Resumen de tu actividad comercial</Text>
+            </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Historial de Transacciones</Text>
-        <Text style={styles.sectionCount}>({processedSales.length} ventas)</Text>
-      </View>
-    </View>
-  );
+            <SummaryCard totalRevenue={totalRevenue} selectedPeriod={selectedPeriod} />
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLOR_PALETTE.primary} />
-        <Text style={styles.loading}>Cargando reportes...</Text>
-      </View>
-    );
-  }
+            <PeriodSelector selectedPeriod={selectedPeriod} onPeriodChange={handlePeriodChange} />
 
-  if (salesHistory.length === 0) {
-    return (
-      <View style={styles.container}>
-        <ListHeader />
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📊</Text>
-          <Text style={styles.emptyTitle}>No hay ventas registradas</Text>
-          <Text style={styles.emptySubtitle}>
-            Cuando realices ventas, aparecerán en este historial
-          </Text>
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Ganancias por Categoria</Text>
+                <Text style={styles.sectionCount}>({aggregatedData.length} Tipos)</Text>
+            </View>
+            
+            <FlatList
+                data={aggregatedData}
+                renderItem={({ item }) => <TypeCard item={item} getTypeConfig={getTypeConfig} />}
+                keyExtractor={item => item.type}
+                horizontal={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.aggregatedList}
+            />
+
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Historial de Transacciones</Text>
+                <Text style={styles.sectionCount}>({processedSales.length} ventas)</Text>
+            </View>
         </View>
-      </View>
-    );
-  }
+    ), [totalRevenue, selectedPeriod, aggregatedData, processedSales.length, handlePeriodChange, getTypeConfig]); 
 
-  return (
-    <View style={styles.container}>
-      <FlatList
-        data={pagedSales}
-        renderItem={({ item, index }) => (
-          <SaleItem item={item} index={index} getTypeConfig={getTypeConfig} />
-        )}
-        keyExtractor={(item) => item.id}
-        ListHeaderComponent={ListHeader}
-        contentContainerStyle={styles.scrollContent}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          pagedSales.length < processedSales.length 
-            ? <ActivityIndicator size="small" color={COLOR_PALETTE.primary} style={styles.loadingMore} /> 
-            : pagedSales.length > 0 
-            ? <Text style={styles.endOfList}>Fin del historial.</Text>
-            : null
-          }
-          />
-    </View>
-  );
+    const renderItem = ({ item, index }: { item: any, index: number }) => (
+        <MemoizedSaleItem item={item} index={index} getTypeConfig={getTypeConfig} />
+    );
+
+    if (isLoading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={COLOR_PALETTE.primary} />
+                <Text style={styles.loading}>Cargando reportes...</Text>
+            </View>
+        );
+    }
+
+    if (salesHistory.length === 0) {
+        return (
+            <View style={styles.container}>
+                <MemoizedListHeader />
+                <View style={styles.emptyState}>
+                    <Text style={styles.emptyIcon}>📊</Text>
+                    <Text style={styles.emptyTitle}>No hay ventas registradas</Text>
+                    <Text style={styles.emptySubtitle}>
+                        Cuando realices ventas, aparecerán en este historial
+                    </Text>
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <View style={styles.container}>
+            <FlatList
+                data={pagedSales}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                ListHeaderComponent={MemoizedListHeader}
+                contentContainerStyle={styles.scrollContent}
+                onEndReached={loadMore}
+                onEndReachedThreshold={0.5}
+                ListFooterComponent={
+                    pagedSales.length < processedSales.length 
+                        ? <ActivityIndicator size="small" color={COLOR_PALETTE.primary} style={styles.loadingMore} /> 
+                        : pagedSales.length > 0 
+                        ? <Text style={styles.endOfList}>Fin del historial.</Text>
+                        : null
+                    }
+            />
+        </View>
+    );
 };
 
 export default Reportes;

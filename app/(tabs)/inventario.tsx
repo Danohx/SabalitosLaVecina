@@ -1,19 +1,23 @@
 // app/(tabs)/inventario.tsx
 
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native'
-import React, { useState } from 'react'
+// app/(tabs)/inventario.tsx (Optimizado con SectionList)
+
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, SectionList } from 'react-native';
+import React, { useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../(lib)/context/InventoryContext'; 
 import { Producto, CategoriaProducto, obtenerPrecio, TipoProducto } from '../../(lib)/data/datos'; 
-import { useInventoryData } from '../../(lib)/hooks/useInventoryData';
+// Importamos los tipos necesarios del hook
+import { useInventoryData, InventorySection, SubSection } from '../../(lib)/hooks/useInventoryData'; 
 import { COLOR_PALETTE } from '../../(lib)/utils/colors';
 import AddProductModal from '../../(lib)/components/AddProductModal';
 import { getFlavorImageSource } from '../../(lib)/utils/image-loader';
 
+// Componente InventarioItem (Mantenido y envuelto en React.memo)
 interface InventarioItemProps {
     producto: Producto; 
     onRestar: (id: string) => void; 
-    onSumar: (id: string) => void;  
+    onSumar: (id: string) => void;  
     onBorrar: (id: string) => void;
 }
 
@@ -46,13 +50,40 @@ const InventarioItem: React.FC<InventarioItemProps> = ({ producto, onRestar, onS
     </View>
 );
 
+// OPTIMIZACIÓN: Memorización del componente
+const MemoizedInventarioItem = React.memo(InventarioItem);
+
+// Componente para renderizar las SubSecciones (utilizado en renderItem de SectionList)
+const RenderSubSections: React.FC<{ subSections: SubSection[], onRestar: (id: string) => void, onSumar: (id: string) => void, onBorrar: (id: string) => void }> = 
+    React.memo(({ subSections, onRestar, onSumar, onBorrar }) => (
+    <>
+        {/* Aquí mantenemos el .map() anidado para Tipos y Productos, pero SectionList maneja la Virtualización de la sección principal */}
+        {subSections.map(subSection => (
+            <View key={subSection.type}>
+                <Text style={styles.subSectionTitle}>{subSection.title}</Text> 
+                {subSection.data.map(item => (
+                    <MemoizedInventarioItem 
+                        key={item.id}
+                        producto={item}
+                        onRestar={onRestar}
+                        onSumar={onSumar}
+                        onBorrar={onBorrar}
+                    />
+                ))}
+            </View>
+        ))}
+    </>
+));
+
+
 const Inventario = () => {
     const { inventory, isLoading, updateStock, addFlavor, deleteFlavor, clearAllInventoryData } = useInventory();
     const [modalVisible, setModalVisible] = useState(false);
     const { inventoryData, getCategoryIcon } = useInventoryData(inventory);
-
-    const handleRestar = (id: string) => updateStock(id, -1);
-    const handleSumar = (id: string) => updateStock(id, 1);
+    
+    // Funciones estables con useCallback
+    const handleRestar = React.useCallback((id: string) => updateStock(id, -1), [updateStock]);
+    const handleSumar = React.useCallback((id: string) => updateStock(id, 1), [updateStock]);
     
     const handleClearInventory = () => { 
         Alert.alert(
@@ -60,41 +91,60 @@ const Inventario = () => {
             "¿Estás seguro de que quieres eliminar TODO el inventario? Esta acción no se puede deshacer.",
             [
                 { text: "Cancelar", style: "cancel" }, 
-                { 
-                    text: "BORRAR TODO", 
-                    style: "destructive", 
-                    onPress: async () => {
-                        try {
-                            await clearAllInventoryData();
-                            Alert.alert("✅ Listo", "Inventario borrado completamente");
-                        } catch (error) {
-                            Alert.alert("❌ Error", "No se pudo borrar el inventario");
-                        }
-                    } 
-                }
+                { text: "BORRAR TODO", style: "destructive", onPress: clearAllInventoryData }
             ]
         );
     }; 
 
-    const handleBorrar = (id: string) => { 
+    const handleBorrar = React.useCallback((id: string) => { 
         Alert.alert(
             "Confirmar Borrado",
             "¿Estás seguro de que quieres eliminar este producto del inventario?",
             [{ text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive", onPress: () => deleteFlavor(id) }]
         );
-    }; 
+    }, [deleteFlavor]); 
 
     const handleSaveNewProduct = (titulo: string, tipo: TipoProducto, categoria: CategoriaProducto) => {
         const precio = obtenerPrecio(categoria, tipo);
         const newProductData: Omit<Producto, 'id' | 'stock'> = { 
             titulo: titulo, 
-            imagen: getFlavorImageSource(titulo), // Usar la función para obtener la imagen correcta
+            imagen: getFlavorImageSource(titulo), 
             tipo: tipo,
             categoria: categoria,
             precio: precio,
         };
         addFlavor(newProductData);
+        setModalVisible(false);
     };
+
+    // Adaptamos el formato para SectionList
+    const sectionListData = useMemo(() => {
+        return inventoryData.map(section => ({
+            ...section,
+            // Agrupamos la estructura de secciones en un solo ítem por categoría, 
+            // ya que SectionList solo virtualiza el nivel más alto de la sección.
+            data: [{ subSections: section.subSections }] 
+        }));
+    }, [inventoryData]);
+
+    // Función que renderiza la cabecera de la Sección (Categoría)
+    const renderSectionHeader = ({ section }: { section: InventorySection & { data: any[] } }) => (
+        <View key={section.key} style={styles.sectionHeader}>
+            <Text style={styles.sectionIcon}>{getCategoryIcon(section.key)}</Text>
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+        </View>
+    );
+
+    // Función que renderiza el contenido (SubSecciones y Productos)
+    const renderItem = ({ item }: { item: { subSections: SubSection[] } }) => (
+        <RenderSubSections 
+            subSections={item.subSections}
+            onRestar={handleRestar}
+            onSumar={handleSumar}
+            onBorrar={handleBorrar}
+        />
+    );
+
 
     if (isLoading) {
         return <Text style={styles.loadingText}>Cargando inventario...</Text>;
@@ -122,40 +172,28 @@ const Inventario = () => {
                 onAdd={handleSaveNewProduct}
             />
 
-            <ScrollView contentContainerStyle={styles.scrollContent}>
-                {inventory.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Ionicons name="cube-outline" size={64} color={COLOR_PALETTE.textLight} />
-                        <Text style={styles.emptyMessage}>Inventario vacío</Text>
-                        <Text style={styles.emptySubMessage}>
-                            Agrega productos para empezar a gestionar tu inventario
-                        </Text>
-                    </View>
-                ) : (
-                    inventoryData.map(section => (
-                        <View key={section.key} style={styles.section}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionIcon}>{getCategoryIcon(section.key)}</Text>
-                                <Text style={styles.sectionTitle}>{section.title}</Text>
-                            </View>
-                            {section.subSections.map(subSection => (
-                                <View key={subSection.type}>
-                                    <Text style={styles.subSectionTitle}>{subSection.title}</Text> 
-                                    {subSection.data.map(item => (
-                                        <InventarioItem 
-                                            key={item.id}
-                                            producto={item}
-                                            onRestar={handleRestar}
-                                            onSumar={handleSumar}
-                                            onBorrar={handleBorrar}
-                                        />
-                                    ))}
-                                </View>
-                            ))}
-                        </View>
-                    ))
-                )}
-            </ScrollView>
+            {inventory.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <Ionicons name="cube-outline" size={64} color={COLOR_PALETTE.textLight} />
+                    <Text style={styles.emptyMessage}>Inventario vacío</Text>
+                    <Text style={styles.emptySubMessage}>
+                        Agrega productos para empezar a gestionar tu inventario
+                    </Text>
+                </View>
+            ) : (
+                // OPTIMIZACIÓN CRÍTICA: SectionList
+                <SectionList
+                    sections={sectionListData}
+                    // Utilizamos una key que incluye el índice del item dentro del array data (que siempre es 1)
+                    keyExtractor={(item, index) => 'section_item_' + index} 
+                    renderItem={renderItem}
+                    renderSectionHeader={renderSectionHeader}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                    // Desactivamos sticky headers para mantener el diseño original
+                    stickySectionHeadersEnabled={false} 
+                />
+            )}
         </View>
     )
 }

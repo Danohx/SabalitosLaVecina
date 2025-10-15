@@ -7,6 +7,12 @@ const UMBRAL_ALERTA_AMARILLA = 10;
 const UMBRAL_ALERTA_ROJA = 5;
 const MILLISECONDS_IN_A_DAY = 24 * 60 * 60 * 1000; 
 
+type NotifiedAlertLevel = 'Critico' | 'Bajo';
+type NotifiedTimestamp = { 
+    time: number; 
+    level: NotifiedAlertLevel;
+};
+
 // Configurar notificaciones
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -19,10 +25,8 @@ Notifications.setNotificationHandler({
 });
 
 export const useNotifications = () => {
-    const [lastNotifiedTimestamps, setLastNotifiedTimestamps] = useState<Map<string, number>>(() => new Map()); 
+    const [lastNotifiedTimestamps, setLastNotifiedTimestamps] = useState<Map<string, NotifiedTimestamp>>(() => new Map()); 
     const [activeAlerts, setActiveAlerts] = useState<AlertaStock[]>([]);
-    const isInitialLoad = useRef(true);
-
 
     const setupNotifications = async () => {
         try {
@@ -70,13 +74,14 @@ export const useNotifications = () => {
         }
     };
 
-    // ✅ CORRECCIÓN: Usar useCallback para memoizar la función
-    const calculateAlerts = useCallback((currentInventory: Producto[]) => {
+    const calculateAlerts = useCallback((currentInventory: Producto[], inventoryIsLoading: boolean) => {
+        if (inventoryIsLoading) return;
+
         const newAlerts: AlertaStock[] = [];
 
         currentInventory.forEach(sabor => {
             if (sabor.stock <= UMBRAL_ALERTA_AMARILLA) {
-                let nivel: 'Critico' | 'Bajo';
+                let nivel: 'Critico' | 'Bajo' | 'Seguro';
                 let mensaje: string;
                 
                 if (sabor.stock <= UMBRAL_ALERTA_ROJA) {
@@ -109,14 +114,22 @@ export const useNotifications = () => {
 
         const now = Date.now();
 
-        // Solo notificar alertas críticas
         newAlerts.forEach(alert => {
-            const lastNotifiedTime = updatedTimestamps.get(alert.saborId) || 0;
+            const lastNotified = updatedTimestamps.get(alert.saborId);
+            const lastNotifiedTime = lastNotified?.time || 0;
+            const lastNotifiedLevel = lastNotified?.level;
 
-            if (alert.nivel === 'Critico') {
-                if (now - lastNotifiedTime > MILLISECONDS_IN_A_DAY) {
+            if (alert.nivel === 'Critico' || alert.nivel === 'Bajo') {
+                let shouldNotify = false;
+
+                if (now - lastNotifiedTime > MILLISECONDS_IN_A_DAY)
+                    shouldNotify = true;
+                else if (alert.nivel === 'Critico' && lastNotifiedLevel === 'Bajo')
+                    shouldNotify = true;
+
+                if (shouldNotify) {
                     alertsToNotify.push(alert);
-                    updatedTimestamps.set(alert.saborId, now); // Registrar el nuevo tiempo de notificación
+                    updatedTimestamps.set(alert.saborId, { time: now, level: alert.nivel }); 
                     shouldUpdateState = true;
                 }
             }
@@ -130,19 +143,12 @@ export const useNotifications = () => {
             }
         });
 
-        if (alertsToNotify.length > 0 && !isInitialLoad.current) {
+        if (alertsToNotify.length > 0) {
             sendPushNotificationAlerts(alertsToNotify);
         }
 
         if (shouldUpdateState) {
             setLastNotifiedTimestamps(updatedTimestamps);
-        }
-
-        // Marcar que la carga inicial terminó
-        if (isInitialLoad.current) {
-            setTimeout(() => {
-                isInitialLoad.current = false;
-            }, 1000);
         }
     }, [lastNotifiedTimestamps]); // ✅ Dependencia correcta
 

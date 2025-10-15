@@ -4,13 +4,13 @@ import { Producto, CategoriaProducto, TipoSabor, TipoFritura, TipoPapeleria } fr
 
 type TipoProducto = TipoSabor | TipoFritura | TipoPapeleria;
 
-interface SubSection {
+export interface SubSection {
     title: string;
     type: TipoProducto;
     data: Producto[];
 }
 
-interface InventorySection {
+export interface InventorySection {
     title: string;
     key: CategoriaProducto; 
     subSections: SubSection[];
