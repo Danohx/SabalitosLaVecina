@@ -1,12 +1,6 @@
 // app/(tabs)/inventario.tsx
 
-<<<<<<< HEAD
 import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, SectionList } from 'react-native';
-=======
-// app/(tabs)/inventario.tsx (Optimizado con SectionList)
-
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, SectionList } from 'react-native';
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
 import React, { useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../(lib)/context/InventoryContext'; 
@@ -18,16 +12,6 @@ import AddProductModal from '../../(lib)/components/AddProductModal';
 import { getFlavorImageSource } from '../../(lib)/utils/image-loader';
 import InventarioItem from '../../(lib)/components/InventarioItem';
 
-<<<<<<< HEAD
-=======
-// Componente InventarioItem (Mantenido y envuelto en React.memo)
-interface InventarioItemProps {
-    producto: Producto; 
-    onRestar: (id: string) => void; 
-    onSumar: (id: string) => void;  
-    onBorrar: (id: string) => void;
-}
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
 
 // OPTIMIZACIÓN: Memorización del componente
 const MemoizedInventarioItem = React.memo(InventarioItem);
@@ -53,38 +37,12 @@ const RenderSubSections: React.FC<{ subSections: SubSection[], onUpdateStock: (i
 ));
 
 
-// OPTIMIZACIÓN: Memorización del componente
-const MemoizedInventarioItem = React.memo(InventarioItem);
-
-// Componente para renderizar las SubSecciones (utilizado en renderItem de SectionList)
-const RenderSubSections: React.FC<{ subSections: SubSection[], onRestar: (id: string) => void, onSumar: (id: string) => void, onBorrar: (id: string) => void }> = 
-    React.memo(({ subSections, onRestar, onSumar, onBorrar }) => (
-    <>
-        {/* Aquí mantenemos el .map() anidado para Tipos y Productos, pero SectionList maneja la Virtualización de la sección principal */}
-        {subSections.map(subSection => (
-            <View key={subSection.type}>
-                <Text style={styles.subSectionTitle}>{subSection.title}</Text> 
-                {subSection.data.map(item => (
-                    <MemoizedInventarioItem 
-                        key={item.id}
-                        producto={item}
-                        onRestar={onRestar}
-                        onSumar={onSumar}
-                        onBorrar={onBorrar}
-                    />
-                ))}
-            </View>
-        ))}
-    </>
-));
-
 
 const Inventario = () => {
     const { inventory, isLoading, updateStock, addFlavor, deleteFlavor, clearAllInventoryData } = useInventory();
     const [modalVisible, setModalVisible] = useState(false);
     const { inventoryData, getCategoryIcon } = useInventoryData(inventory);
     
-<<<<<<< HEAD
     const handleUpdateStock = React.useCallback((id: string, newStock: number) => {
         const currentProduct = inventory.find(p => p.id === id);
         if (currentProduct) {
@@ -92,11 +50,6 @@ const Inventario = () => {
             updateStock(id, change);
         }
     }, [inventory, updateStock]);
-=======
-    // Funciones estables con useCallback
-    const handleRestar = React.useCallback((id: string) => updateStock(id, -1), [updateStock]);
-    const handleSumar = React.useCallback((id: string) => updateStock(id, 1), [updateStock]);
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
     
     const handleClearInventory = () => { 
         Alert.alert(
@@ -152,12 +105,7 @@ const Inventario = () => {
     const renderItem = ({ item }: { item: { subSections: SubSection[] } }) => (
         <RenderSubSections 
             subSections={item.subSections}
-<<<<<<< HEAD
             onUpdateStock={handleUpdateStock}
-=======
-            onRestar={handleRestar}
-            onSumar={handleSumar}
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
             onBorrar={handleBorrar}
         />
     );
