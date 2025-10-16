@@ -12,6 +12,7 @@ import { CategoriaProducto, Producto } from '../../(lib)/data/datos';
 import { COLOR_PALETTE } from '../../(lib)/utils/colors';
 import { useToast } from '../../(lib)/context/ToastContext';
 import SaleQuantityModal from '../../(lib)/components/SaleQuantityModal';
+import { getFlavorImageSource } from '../../(lib)/utils/image-loader';
 
 const MemoizedBotonSabor = React.memo(BotonSabor);
 
@@ -75,7 +76,7 @@ const Principal = () => {
     const renderItem = ({ item }: { item: Producto }) => (
         <MemoizedBotonSabor
             titulo={item.titulo}
-            imagenSource={item.imagen} 
+            imagenSource={getFlavorImageSource(item.titulo)} 
             onPress={() => updateCart(item.id, 1)}
             onRemove={() => updateCart(item.id, -1)}
             onLongPress={() => handleLongPress(item)}
