@@ -3,7 +3,7 @@
     "name": "SabalitosLaVecina",
     "slug": "SabalitosLaVecina",
     "scheme": "sabalitosapp",
-    "version": "2.1.1",
+    "version": "2.1.2",
     "orientation": "portrait",
     "icon": "./assets/vecina.png",
     "userInterfaceStyle": "light",

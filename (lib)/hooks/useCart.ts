@@ -2,7 +2,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Producto, CartItem as CartItemType } from '../data/datos';
 import { useToast } from '../context/ToastContext';
-import { Alert } from 'react-native';
 
 interface InternalCartItem {
     id: string;
