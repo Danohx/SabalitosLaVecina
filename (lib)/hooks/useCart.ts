@@ -1,10 +1,55 @@
 // hooks/useCart.ts
 import { useState, useMemo, useCallback } from 'react';
+import { Producto, CartItem as CartItemType } from '../data/datos';
+import { useToast } from '../context/ToastContext';
 import { Alert } from 'react-native';
-import { Producto, CartItem } from '../data/datos';
+
+interface InternalCartItem {
+    id: string;
+    quantity: number;
+}
+
+type CartMapState = Record<string, InternalCartItem>;
 
 export const useCart = (inventory: Producto[]) => {
-    const [cart, setCart] = useState<CartItem[]>([]);
+    const [cartMap, setCartMap] = useState<CartMapState>({});
+    const { showToast } = useToast();
+
+    const inventoryMap = useMemo(() => {
+        return inventory.reduce((map, product) => {
+            map[product.id] = product;
+            return map;
+        }, {} as Record<string, Producto>);
+    }, [inventory]);
+
+    const setQuantity = useCallback((productoId: string, quantity: number) => {
+        setCartMap(prevCart => {
+            const producto = inventoryMap[productoId];
+            if (!producto) return prevCart;
+
+            // Validación de stock es crucial aquí también
+            if (quantity > producto.stock) {
+                showToast(`Stock limitado. Solo quedan ${producto.stock} de ${producto.titulo}.`, 'warning');
+                return prevCart;
+            }
+
+            // Caso: Eliminar el ítem si la cantidad es 0
+            if (quantity <= 0) {
+                const newCart = { ...prevCart };
+                delete newCart[productoId];
+                return newCart;
+            }
+
+            // Caso: Actualizar o Agregar
+            return {
+                ...prevCart,
+                [productoId]: { 
+                    id: productoId, 
+                    quantity: quantity 
+                },
+            };
+        });
+    }, [inventoryMap, showToast]);
 
     const updateCart = useCallback((productoId: string, change: number) => {
         setCartMap(prevCart => {
