@@ -1,7 +1,7 @@
 // app/(tabs)/index.tsx
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BotonSabor from '../../(lib)/components/BotonSabor'; 
 import ConfirmSaleButton from '../../(lib)/components/ConfirmSaleButton';
@@ -10,6 +10,8 @@ import { useCart } from '../../(lib)/hooks/useCart';
 import { useCategories } from '../../(lib)/hooks/useCategories';
 import { CategoriaProducto, Producto } from '../../(lib)/data/datos';
 import { COLOR_PALETTE } from '../../(lib)/utils/colors';
+import { useToast } from '../../(lib)/context/ToastContext';
+import SaleQuantityModal from '../../(lib)/components/SaleQuantityModal';
 
 const MemoizedBotonSabor = React.memo(BotonSabor);
 
@@ -20,19 +22,54 @@ const ITEM_WIDTH = (width - HORIZONTAL_PADDING - GRID_GAP) / 2;
 const ITEM_HEIGHT = 140; // Altura ajustada del componente
 const ESTIMATED_ITEM_HEIGHT = ITEM_HEIGHT + 12; // altura + marginBottom
 
+interface ActiveModal {
+    visible: boolean;
+    productoId: string | null;
+    maxStock: number;
+    productTitle: string;
+    currentQuantity: number;
+}
+
 const Principal = () => {
     const { inventory, isLoading, recordSale } = useInventory(); 
-    const { cart, updateCart, getCartQuantity, clearCart, totalCost, totalItems } = useCart(inventory);
+    const { cart, updateCart, setQuantity, getCartQuantity, clearCart, totalCost, totalItems } = useCart(inventory);
     const { categories, getCategoryIcon, getCategoryTitle, filterByCategory } = useCategories(inventory);
     const [selectedCategory, setSelectedCategory] = useState<CategoriaProducto>('Sabalitos');
+    const { showToast } = useToast();
 
     const filteredProducts = filterByCategory(selectedCategory);
+
+    const [activeModal, setActiveModal] = useState<ActiveModal>({
+        visible: false,
+        productoId: null,
+        maxStock: 0,
+        productTitle: '',
+        currentQuantity: 0,
+    });
+
+    const handleLongPress = (item: Producto) => {
+        setActiveModal({
+            visible: true,
+            productoId: item.id,
+            maxStock: item.stock,
+            productTitle: item.titulo,
+            currentQuantity: getCartQuantity(item.id),
+        });
+    };
+    
+    const handleModalConfirm = useCallback((quantity: number) => {
+        if (activeModal.productoId) {
+            // Utilizamos la nueva función setQuantity
+            setQuantity(activeModal.productoId, quantity); 
+        }
+        setActiveModal({ ...activeModal, visible: false });
+    }, [activeModal, setQuantity]);
 
     const handleConfirmSale = () => {
         if (cart.length === 0) return;
         recordSale(cart); 
         clearCart();
-        Alert.alert("Venta Confirmada", `Se han vendido ${totalItems} artículos. Stock actualizado.`);
+        showToast(`Venta de ${totalItems} artículos por $${totalCost.toFixed(2)} confirmada.`, 'success');
     };
 
     const renderItem = ({ item }: { item: Producto }) => (
@@ -41,6 +78,7 @@ const Principal = () => {
             imagenSource={item.imagen} 
             onPress={() => updateCart(item.id, 1)}
             onRemove={() => updateCart(item.id, -1)}
+            onLongPress={() => handleLongPress(item)}
             cartQuantity={getCartQuantity(item.id)}
             stock={item.stock} 
             disabled={item.stock === 0}
@@ -174,6 +212,15 @@ const Principal = () => {
                 onPress={handleConfirmSale}
                 totalCost={totalCost} 
             />
+
+            <SaleQuantityModal
+                visible={activeModal.visible}
+                onClose={() => setActiveModal({ ...activeModal, visible: false })}
+                onConfirm={handleModalConfirm}
+                maxStock={activeModal.maxStock}
+                productTitle={activeModal.productTitle}
+                currentQuantity={activeModal.currentQuantity}
+            />
         </View>
     )
 }
@@ -287,15 +334,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginHorizontal: 20,
-        marginTop: 15,
-        marginBottom: 20,
-        gap: 10,
+        marginTop: 10,
+        marginBottom: 10,
+        gap: 6,
     },
     statCard: {
         flex: 1,
         backgroundColor: COLOR_PALETTE.surface,
-        padding: 12,
-        borderRadius: 12,
+        padding: 6,
+        borderRadius: 6,
         alignItems: 'center',
         borderWidth: 1,
         borderColor: COLOR_PALETTE.border,
@@ -306,15 +353,16 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     statNumber: {
-        fontSize: 18,
+        fontSize: 14,
         fontWeight: 'bold',
         color: COLOR_PALETTE.textPrimary,
-        marginTop: 6,
+        marginTop: 2,
+        marginBottom: 1,
     },
     statLabel: {
         fontSize: 10,
         color: COLOR_PALETTE.textSecondary,
-        marginTop: 2,
+        marginTop: 0,
     },
     sectionHeader: {
         flexDirection: 'row',

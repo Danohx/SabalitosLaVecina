@@ -9,13 +9,14 @@ interface BotonSaborProps {
   imagenSource: any;
   onPress: () => void;
   onRemove: () => void;
+  onLongPress: () => void;
   stock: number;
   cartQuantity: number;
   disabled: boolean;
   estilo?: ViewStyle;
 }
 
-const BotonSabor: React.FC<BotonSaborProps> = ({ titulo, imagenSource, onPress, onRemove, stock, cartQuantity, disabled, estilo }) => {
+const BotonSabor: React.FC<BotonSaborProps> = ({ titulo, imagenSource, onPress, onRemove, onLongPress, stock, cartQuantity, disabled, estilo }) => {
   const isLowStock = stock <= 5 && stock > 0;
   
   return (
@@ -25,8 +26,10 @@ const BotonSabor: React.FC<BotonSaborProps> = ({ titulo, imagenSource, onPress, 
         estilo,
         disabled && styles.disabledContainer
       ]} 
-      onPress={onPress} 
-      activeOpacity={disabled ? 1 : 0.9} 
+      onPress={onPress}
+      onLongPress={onLongPress}
+      activeOpacity={disabled ? 1 : 0.7} 
+      disabled={disabled}
     >
       <Image source={imagenSource} style={styles.imagen} resizeMode="cover" />
       

@@ -1,8 +1,6 @@
 // app/(tabs)/inventario.tsx
 
-// app/(tabs)/inventario.tsx (Optimizado con SectionList)
-
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert, SectionList } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, SectionList } from 'react-native';
 import React, { useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useInventory } from '../../(lib)/context/InventoryContext'; 
@@ -12,52 +10,16 @@ import { useInventoryData, InventorySection, SubSection } from '../../(lib)/hook
 import { COLOR_PALETTE } from '../../(lib)/utils/colors';
 import AddProductModal from '../../(lib)/components/AddProductModal';
 import { getFlavorImageSource } from '../../(lib)/utils/image-loader';
+import InventarioItem from '../../(lib)/components/InventarioItem';
 
-// Componente InventarioItem (Mantenido y envuelto en React.memo)
-interface InventarioItemProps {
-    producto: Producto; 
-    onRestar: (id: string) => void; 
-    onSumar: (id: string) => void;  
-    onBorrar: (id: string) => void;
-}
-
-const InventarioItem: React.FC<InventarioItemProps> = ({ producto, onRestar, onSumar, onBorrar }) => (
-    <View style={itemStyles.container}>
-        <Image source={producto.imagen} style={itemStyles.imagen} />
-        <View style={itemStyles.info}>
-            <Text style={itemStyles.titulo}>{producto.titulo}</Text>
-            <Text style={itemStyles.detalles}>
-                Stock: {producto.stock} | ${(producto.precio || 0).toFixed(2)}
-            </Text>
-            <Text style={itemStyles.categoria}>{producto.categoria}</Text>
-        </View>
-        <TouchableOpacity style={itemStyles.deleteButton} onPress={() => onBorrar(producto.id)}>
-            <Ionicons name="trash-outline" size={20} color={COLOR_PALETTE.error} />
-        </TouchableOpacity>
-        <View style={itemStyles.contador}>
-            <TouchableOpacity 
-                style={[itemStyles.addButton, producto.stock === 0 && { backgroundColor: COLOR_PALETTE.textLight }]} 
-                onPress={() => onRestar(producto.id)} 
-                disabled={producto.stock === 0}
-            >
-                <Text style={itemStyles.addText}>-</Text>
-            </TouchableOpacity>
-            <Text style={itemStyles.cantidad}>{producto.stock}</Text>
-            <TouchableOpacity style={itemStyles.addButton} onPress={() => onSumar(producto.id)}>
-                <Text style={itemStyles.addText}>+</Text>
-            </TouchableOpacity>
-        </View>
-    </View>
-);
 
 // OPTIMIZACIÓN: Memorización del componente
 const MemoizedInventarioItem = React.memo(InventarioItem);
 
 // Componente para renderizar las SubSecciones (utilizado en renderItem de SectionList)
-const RenderSubSections: React.FC<{ subSections: SubSection[], onRestar: (id: string) => void, onSumar: (id: string) => void, onBorrar: (id: string) => void }> = 
-    React.memo(({ subSections, onRestar, onSumar, onBorrar }) => (
+const RenderSubSections: React.FC<{ subSections: SubSection[], onUpdateStock: (id: string, newStock: number) => void, onBorrar: (id: string) => void }> = 
+    React.memo(({ subSections, onUpdateStock, onBorrar }) => (
     <>
-        {/* Aquí mantenemos el .map() anidado para Tipos y Productos, pero SectionList maneja la Virtualización de la sección principal */}
         {subSections.map(subSection => (
             <View key={subSection.type}>
                 <Text style={styles.subSectionTitle}>{subSection.title}</Text> 
@@ -65,9 +27,8 @@ const RenderSubSections: React.FC<{ subSections: SubSection[], onRestar: (id: st
                     <MemoizedInventarioItem 
                         key={item.id}
                         producto={item}
-                        onRestar={onRestar}
-                        onSumar={onSumar}
-                        onBorrar={onBorrar}
+                        onUpdateStock={onUpdateStock}
+                        onBorrar={onBorrar}
                     />
                 ))}
             </View>
@@ -81,9 +42,13 @@ const Inventario = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const { inventoryData, getCategoryIcon } = useInventoryData(inventory);
     
-    // Funciones estables con useCallback
-    const handleRestar = React.useCallback((id: string) => updateStock(id, -1), [updateStock]);
-    const handleSumar = React.useCallback((id: string) => updateStock(id, 1), [updateStock]);
+    const handleUpdateStock = React.useCallback((id: string, newStock: number) => {
+        const currentProduct = inventory.find(p => p.id === id);
+        if (currentProduct) {
+            const change = newStock - currentProduct.stock;
+            updateStock(id, change);
+        }
+    }, [inventory, updateStock]);
     
     const handleClearInventory = () => { 
         Alert.alert(
@@ -139,8 +104,7 @@ const Inventario = () => {
     const renderItem = ({ item }: { item: { subSections: SubSection[] } }) => (
         <RenderSubSections 
             subSections={item.subSections}
-            onRestar={handleRestar}
-            onSumar={handleSumar}
+            onUpdateStock={handleUpdateStock}
             onBorrar={handleBorrar}
         />
     );

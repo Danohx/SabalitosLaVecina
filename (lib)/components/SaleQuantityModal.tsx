@@ -1,33 +1,61 @@
 // components/SaleQuantityModal.tsx
-
-import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { COLOR_PALETTE } from '../utils/colors';
+import { useToast } from '../context/ToastContext';
 
 interface SaleQuantityModalProps {
     visible: boolean;
     onClose: () => void;
     onConfirm: (quantity: number) => void;
-    flavorTitle: string; // Título del sabor para mostrar en el modal
-    maxStock: number; // Stock disponible (para validación)
+    maxStock: number;
+    productTitle: string;
+    currentQuantity: number;
 }
 
-const SaleQuantityModal: React.FC<SaleQuantityModalProps> = ({ visible, onClose, onConfirm, flavorTitle, maxStock }) => {
-    const [quantityInput, setQuantityInput] = useState('1'); // Inicialmente 1
+const SaleQuantityModal: React.FC<SaleQuantityModalProps> = ({ 
+    visible, 
+    onClose, 
+    onConfirm, 
+    maxStock, 
+    productTitle,
+    currentQuantity 
+}) => {
+    const [quantityInput, setQuantityInput] = useState(String(currentQuantity > 0 ? currentQuantity : 1));
 
-    const handleConfirm = () => {
-        const quantity = parseInt(quantityInput, 10);
+    const { showToast } = useToast();
+
+    useEffect(() => {
+        // Resetear el input cuando el modal se abre/cierra
+        if (visible) {
+            setQuantityInput(String(currentQuantity > 0 ? currentQuantity : 1));
+        }
+    }, [visible, currentQuantity]);
+
+    const handleConfirm = useCallback(() => {
+        const quantity = parseInt(quantityInput || '0', 10);
         
+        Keyboard.dismiss();
+
         if (isNaN(quantity) || quantity <= 0) {
-            alert("Por favor, introduce una cantidad válida.");
+            showToast("La cantidad debe ser un número positivo.", 'error');
             return;
         }
+
         if (quantity > maxStock) {
-            alert(`No puedes vender ${quantity} unidades. Stock disponible: ${maxStock}.`);
+            showToast(`Error: Solo hay ${maxStock} unidades de ${productTitle}.`, 'warning');
             return;
         }
 
         onConfirm(quantity);
-        setQuantityInput('1'); // Resetear input
+        onClose();
+    }, [quantityInput, maxStock, productTitle, onConfirm, onClose]);
+
+    const handleQuantityChange = (text: string) => {
+        // Permite solo números
+        const newText = text.replace(/[^0-9]/g, '');
+        setQuantityInput(newText);
     };
 
     return (
@@ -37,33 +65,31 @@ const SaleQuantityModal: React.FC<SaleQuantityModalProps> = ({ visible, onClose,
             visible={visible}
             onRequestClose={onClose}
         >
-            <View style={modalStyles.centeredView}>
-                <View style={modalStyles.modalView}>
-                    <Text style={modalStyles.modalTitle}>Vender {flavorTitle}</Text>
-                    <Text style={modalStyles.stockText}>Stock Disponible: {maxStock}</Text>
-                    
+            <View style={styles.centeredView}>
+                <View style={styles.modalView}>
+                    <Text style={styles.modalTitle}>Ajustar Cantidad</Text>
+                    <Text style={styles.modalSubtitle}>{productTitle}</Text>
+                    <Text style={styles.stockText}>Stock disponible: {maxStock}</Text>
+
                     <TextInput
-                        style={modalStyles.input}
-                        placeholder="Cantidad a vender"
-                        onChangeText={setQuantityInput}
+                        style={styles.input}
+                        onChangeText={handleQuantityChange}
                         value={quantityInput}
-                        keyboardType="numeric" // Solo teclado numérico
+                        keyboardType="numeric"
+                        placeholder="Cantidad"
+                        maxLength={4}
                         autoFocus={true}
                     />
 
-                    <View style={modalStyles.buttonContainer}>
-                        <TouchableOpacity 
-                            style={[modalStyles.button, modalStyles.buttonCancel]}
-                            onPress={onClose}
-                        >
-                            <Text style={modalStyles.textStyle}>Cancelar</Text>
+                    <View style={styles.buttonContainer}>
+                        <TouchableOpacity style={[styles.button, styles.buttonClose]} onPress={onClose}>
+                            <Text style={styles.textStyle}>Cancelar</Text>
                         </TouchableOpacity>
-                        
-                        <TouchableOpacity
-                            style={[modalStyles.button, modalStyles.buttonConfirm]}
-                            onPress={handleConfirm}
-                        >
-                            <Text style={modalStyles.textStyle}>Confirmar Venta</Text>
+                        <TouchableOpacity style={[styles.button, styles.buttonConfirm]} onPress={handleConfirm}>
+                            <Text style={styles.textStyle}>
+                                {currentQuantity > 0 ? 'Actualizar' : 'Agregar'}
+                            </Text>
+                            <Ionicons name="cart" size={18} color={COLOR_PALETTE.surface} style={{ marginLeft: 5 }} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -74,15 +100,81 @@ const SaleQuantityModal: React.FC<SaleQuantityModalProps> = ({ visible, onClose,
 
 export default SaleQuantityModal;
 
-const modalStyles = StyleSheet.create({
-    centeredView: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-    modalView: { margin: 20, backgroundColor: 'white', borderRadius: 15, padding: 25, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.25, elevation: 5, width: '80%' },
-    modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10 },
-    stockText: { marginBottom: 15, color: '#555' },
-    input: { width: '100%', padding: 10, marginBottom: 20, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, textAlign: 'center' },
-    buttonContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-    button: { borderRadius: 8, padding: 10, elevation: 2, width: '48%', alignItems: 'center' },
-    buttonCancel: { backgroundColor: '#ccc' },
-    buttonConfirm: { backgroundColor: '#f4511e' },
-    textStyle: { color: 'white', fontWeight: 'bold', textAlign: 'center' },
+const styles = StyleSheet.create({
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: COLOR_PALETTE.surface,
+        borderRadius: 20,
+        padding: 35,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+        width: '80%',
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 8,
+        color: COLOR_PALETTE.textPrimary,
+    },
+    modalSubtitle: {
+        fontSize: 16,
+        color: COLOR_PALETTE.textSecondary,
+        marginBottom: 10,
+    },
+    stockText: {
+        fontSize: 14,
+        color: COLOR_PALETTE.primaryDark,
+        marginBottom: 20,
+        fontWeight: '600',
+    },
+    input: {
+        width: '100%',
+        height: 50,
+        borderColor: COLOR_PALETTE.border,
+        borderWidth: 1,
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        fontSize: 20,
+        textAlign: 'center',
+        marginBottom: 25,
+        fontWeight: 'bold',
+        color: COLOR_PALETTE.textPrimary,
+    },
+    buttonContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: 10,
+    },
+    button: {
+        flex: 1,
+        borderRadius: 10,
+        padding: 12,
+        elevation: 2,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    buttonClose: {
+        backgroundColor: COLOR_PALETTE.textLight,
+    },
+    buttonConfirm: {
+        backgroundColor: COLOR_PALETTE.success,
+    },
+    textStyle: {
+        color: COLOR_PALETTE.surface,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        fontSize: 16,
+    },
 });

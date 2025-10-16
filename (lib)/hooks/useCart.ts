@@ -1,7 +1,7 @@
 // hooks/useCart.ts
 import { useState, useMemo, useCallback } from 'react';
-import { Alert } from 'react-native';
 import { Producto, CartItem as CartItemType } from '../data/datos';
+import { useToast } from '../context/ToastContext';
 
 interface InternalCartItem {
     id: string;
@@ -12,6 +12,7 @@ type CartMapState = Record<string, InternalCartItem>;
 
 export const useCart = (inventory: Producto[]) => {
     const [cartMap, setCartMap] = useState<CartMapState>({});
+    const { showToast } = useToast();
 
     const inventoryMap = useMemo(() => {
         return inventory.reduce((map, product) => {
@@ -19,6 +20,35 @@ export const useCart = (inventory: Producto[]) => {
             return map;
         }, {} as Record<string, Producto>);
     }, [inventory]);
+
+    const setQuantity = useCallback((productoId: string, quantity: number) => {
+        setCartMap(prevCart => {
+            const producto = inventoryMap[productoId];
+            if (!producto) return prevCart;
+
+            // Validación de stock es crucial aquí también
+            if (quantity > producto.stock) {
+                showToast(`Stock limitado. Solo quedan ${producto.stock} de ${producto.titulo}.`, 'warning');
+                return prevCart;
+            }
+
+            // Caso: Eliminar el ítem si la cantidad es 0
+            if (quantity <= 0) {
+                const newCart = { ...prevCart };
+                delete newCart[productoId];
+                return newCart;
+            }
+
+            // Caso: Actualizar o Agregar
+            return {
+                ...prevCart,
+                [productoId]: { 
+                    id: productoId, 
+                    quantity: quantity 
+                },
+            };
+        });
+    }, [inventoryMap, showToast]);
 
     const updateCart = useCallback((productoId: string, change: number) => {
         setCartMap(prevCart => {
@@ -30,7 +60,7 @@ export const useCart = (inventory: Producto[]) => {
             let newQuantity = currentQuantity + change;
 
             if (newQuantity > producto.stock) {
-                Alert.alert("Límite de Stock", `Solo quedan ${producto.stock} unidades de ${producto.titulo}.`);
+                showToast(`Stock limitado. Solo quedan ${producto.stock} de ${producto.titulo}.`, 'warning');
                 return prevCart;
             }
 
@@ -91,6 +121,7 @@ export const useCart = (inventory: Producto[]) => {
     return {
         cart: cartAsArray,
         updateCart,
+        setQuantity,
         getCartQuantity,
         clearCart,
         totalCost,
