@@ -1,12 +1,7 @@
 // app/(tabs)/index.tsx
 
-<<<<<<< HEAD
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions, FlatList } from 'react-native';
-=======
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions, FlatList } from 'react-native';
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
 import { Ionicons } from '@expo/vector-icons';
 import BotonSabor from '../../(lib)/components/BotonSabor'; 
 import ConfirmSaleButton from '../../(lib)/components/ConfirmSaleButton';
@@ -34,15 +29,6 @@ interface ActiveModal {
     productTitle: string;
     currentQuantity: number;
 }
-
-const MemoizedBotonSabor = React.memo(BotonSabor);
-
-const { width } = Dimensions.get('window');
-const HORIZONTAL_PADDING = 40; // padding total (20px cada lado)
-const GRID_GAP = 12;
-const ITEM_WIDTH = (width - HORIZONTAL_PADDING - GRID_GAP) / 2;
-const ITEM_HEIGHT = 140; // Altura ajustada del componente
-const ESTIMATED_ITEM_HEIGHT = ITEM_HEIGHT + 12; // altura + marginBottom
 
 const Principal = () => {
     const { inventory, isLoading, recordSale } = useInventory(); 
@@ -83,11 +69,7 @@ const Principal = () => {
         if (cart.length === 0) return;
         recordSale(cart); 
         clearCart();
-<<<<<<< HEAD
         showToast(`Venta de ${totalItems} artículos por $${totalCost.toFixed(2)} confirmada.`, 'success');
-=======
-        Alert.alert("Venta Confirmada", `Se han vendido ${totalItems} artículos. Stock actualizado.`);
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
     };
 
     const renderItem = ({ item }: { item: Producto }) => (
@@ -96,10 +78,7 @@ const Principal = () => {
             imagenSource={item.imagen} 
             onPress={() => updateCart(item.id, 1)}
             onRemove={() => updateCart(item.id, -1)}
-<<<<<<< HEAD
             onLongPress={() => handleLongPress(item)}
-=======
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
             cartQuantity={getCartQuantity(item.id)}
             stock={item.stock} 
             disabled={item.stock === 0}
@@ -355,26 +334,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         marginHorizontal: 20,
-<<<<<<< HEAD
         marginTop: 10,
         marginBottom: 10,
         gap: 6,
-=======
-        marginTop: 15,
-        marginBottom: 20,
-        gap: 10,
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
     },
     statCard: {
         flex: 1,
         backgroundColor: COLOR_PALETTE.surface,
-<<<<<<< HEAD
         padding: 6,
         borderRadius: 6,
-=======
-        padding: 12,
-        borderRadius: 12,
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
         alignItems: 'center',
         borderWidth: 1,
         borderColor: COLOR_PALETTE.border,
@@ -385,27 +353,16 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     statNumber: {
-<<<<<<< HEAD
         fontSize: 14,
         fontWeight: 'bold',
         color: COLOR_PALETTE.textPrimary,
         marginTop: 2,
         marginBottom: 1,
-=======
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLOR_PALETTE.textPrimary,
-        marginTop: 6,
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
     },
     statLabel: {
         fontSize: 10,
         color: COLOR_PALETTE.textSecondary,
-<<<<<<< HEAD
         marginTop: 0,
-=======
-        marginTop: 2,
->>>>>>> 8254f60e495052a39562839fb20b5a1900450baa
     },
     sectionHeader: {
         flexDirection: 'row',
